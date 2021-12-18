@@ -108,8 +108,9 @@ defmodule Mix.Dep.Loader do
         make?(dep) ->
           make_dep(dep)
 
+        # TODO: test
         true ->
-          {dep, []}
+          {dep, Enum.map(children || [], &to_dep(&1, opts[:dest], manager))}
       end
 
     %{validate_app(dep) | deps: attach_only_and_targets(children, opts)}
