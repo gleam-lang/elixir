@@ -91,6 +91,9 @@ defmodule Mix.Tasks.Deps.Compile do
             Mix.Dep.make?(dep) ->
               do_make(dep, config)
 
+            dep.manager == :bare ->
+              do_bare(dep, config)
+
             dep.manager == :rebar ->
               do_rebar(dep, config)
 
@@ -99,8 +102,9 @@ defmodule Mix.Tasks.Deps.Compile do
 
             true ->
               shell.error(
-                "Could not compile #{inspect(app)}, no \"mix.exs\", \"rebar.config\" or \"Makefile\" " <>
-                  "(pass :compile as an option to customize compilation, set it to \"false\" to do nothing)"
+                "Could not compile #{inspect(app)}, no \"mix.exs\", \"rebar.config\", \"Makefile\" " <>
+                  " or \"#{inspect(app)}.app.src\" (pass :compile as an option to customize" <>
+                  " compilation, set it to \"false\" to do nothing)"
               )
 
               false
@@ -237,6 +241,34 @@ defmodule Mix.Tasks.Deps.Compile do
     end
 
     Code.prepend_path(Path.join(build_path, "ebin"))
+    true
+  end
+
+  # TODO: test
+  defp do_bare(%Mix.Dep{opts: opts, app: app}, config) do
+    dep_path = opts[:dest]
+    build_path = opts[:build]
+    config = Keyword.put(config, :app_path, build_path)
+    Mix.Project.build_structure(config, symlink_ebin: false, source: dep_path)
+
+    dep_src_path = Path.join(dep_path, "src")
+    dep_app_path = Path.join(dep_src_path, "#{app}.app.src")
+    ebin_path = Path.join(build_path, "ebin")
+
+    {:ok, [{:application, ^app, config}]} = :file.consult(dep_app_path)
+    modules = Keyword.fetch!(config, :modules)
+    # TODO: {:i, include_path}
+    erlc_options = [:debug_info, :return, :report, outdir: String.to_charlist(ebin_path)]
+
+    # TODO: Use the Elixir Erlang compiler here.
+    for module <- modules do
+      file = String.to_charlist(Path.join(dep_src_path, "#{module}.erl"))
+      # TODO: handle failure
+      :compile.file(file, erlc_options)
+    end
+
+    File.copy!(dep_app_path, Path.join(ebin_path, "#{app}.app"))
+    Code.prepend_path(ebin_path)
     true
   end
 
