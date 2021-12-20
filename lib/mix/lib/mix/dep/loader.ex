@@ -110,7 +110,7 @@ defmodule Mix.Dep.Loader do
 
         # TODO: test
         true ->
-          {dep, Enum.map(children || [], &to_dep(&1, opts[:dest], manager))}
+          {dep, Enum.map(children || [], &to_dep(&1, opts[:dest], _manager = nil))}
       end
 
     %{validate_app(dep) | deps: attach_only_and_targets(children, opts)}
