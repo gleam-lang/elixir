@@ -51,16 +51,16 @@ defmodule Mix.Tasks.Compile.Erlang do
     source_paths = project[:erlc_paths]
     Mix.Compilers.Erlang.assert_valid_erlc_paths(source_paths)
     files = Mix.Utils.extract_files(source_paths, [:erl])
-    do_run(files, opts, project, source_paths)
-  end
-
-  defp do_run([], _, _, _), do: {:noop, []}
-
-  defp do_run(files, opts, project, source_paths) do
     include_path = Erlang.to_erl_file(project[:erlc_include_path])
     compile_path = Erlang.to_erl_file(Mix.Project.compile_path(project))
     erlc_options = project[:erlc_options] || []
+    run(files, opts, include_path, compile_path, erlc_options, source_paths)
+  end
 
+  # TODO: Determine appropriate interface
+  def run([], _, _, _, _, _), do: {:noop, []}
+
+  def run(files, opts, include_path, compile_path, erlc_options, source_paths) do
     unless is_list(erlc_options) do
       Mix.raise(":erlc_options should be a list of options, got: #{inspect(erlc_options)}")
     end

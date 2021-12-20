@@ -92,7 +92,7 @@ defmodule Mix.Tasks.Deps.Compile do
               do_make(dep, config)
 
             dep.manager == :erlang ->
-              do_bare(dep, config)
+              do_erlang(dep, config)
 
             dep.manager == :rebar ->
               do_rebar(dep, config)
@@ -245,7 +245,9 @@ defmodule Mix.Tasks.Deps.Compile do
   end
 
   # TODO: test
-  defp do_bare(%Mix.Dep{opts: opts, app: app}, config) do
+  defp do_erlang(%Mix.Dep{opts: opts, app: app}, config) do
+    alias Mix.Compilers.Erlang
+
     dep_path = opts[:dest]
     build_path = opts[:build]
     config = Keyword.put(config, :app_path, build_path)
@@ -253,22 +255,26 @@ defmodule Mix.Tasks.Deps.Compile do
 
     dep_src_path = Path.join(dep_path, "src")
     dep_app_path = Path.join(dep_src_path, "#{app}.app.src")
-    ebin_path = Path.join(build_path, "ebin")
 
-    {:ok, [{:application, ^app, config}]} = :file.consult(dep_app_path)
-    modules = Keyword.fetch!(config, :modules)
-    # TODO: {:i, include_path}
-    erlc_options = [:debug_info, :return, :report, outdir: String.to_charlist(ebin_path)]
+    source_paths = [dep_src_path]
+    files = Mix.Utils.extract_files(source_paths, [:erl])
+    opts = []
+    include_path = Erlang.to_erl_file(Path.join(dep_path, "include"))
+    compile_path = Erlang.to_erl_file(Path.join(build_path, "ebin"))
+    erlc_options = []
 
-    # TODO: Use the Elixir Erlang compiler here.
-    for module <- modules do
-      file = String.to_charlist(Path.join(dep_src_path, "#{module}.erl"))
-      # TODO: handle failure
-      :compile.file(file, erlc_options)
-    end
+    Mix.Tasks.Compile.Erlang.run(
+      files,
+      opts,
+      include_path,
+      compile_path,
+      erlc_options,
+      source_paths
+    )
 
-    File.copy!(dep_app_path, Path.join(ebin_path, "#{app}.app"))
-    Code.prepend_path(ebin_path)
+    # TODO: update .app to have all the modules in it
+    File.copy!(dep_app_path, Path.join(compile_path, "#{app}.app"))
+    Code.prepend_path(compile_path)
     true
   end
 
