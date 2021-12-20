@@ -252,7 +252,7 @@ defmodule Mix.Dep.Loader do
 
       # TODO: test
       any_of?(dest, ["src/#{app}.app.src"]) ->
-        :bare
+        :erlang
 
       true ->
         nil

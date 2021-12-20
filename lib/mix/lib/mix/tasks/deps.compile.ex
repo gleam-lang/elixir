@@ -91,7 +91,7 @@ defmodule Mix.Tasks.Deps.Compile do
             Mix.Dep.make?(dep) ->
               do_make(dep, config)
 
-            dep.manager == :bare ->
+            dep.manager == :erlang ->
               do_bare(dep, config)
 
             dep.manager == :rebar ->
