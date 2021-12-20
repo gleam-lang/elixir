@@ -88,7 +88,7 @@ defmodule Mix.Dep.Loader do
     #   2. From SCM, so that Hex dependencies of a rebar project can be compiled with mix
     #   3. From the parent dependency, used for rebar dependencies from git
     #   4. Inferred from files in dependency (mix.exs, rebar.config, Makefile)
-    manager = opts[:manager] || scm_manager(scm, opts) || manager || infer_manager(opts[:dest])
+    manager = opts[:manager] || scm_manager(scm, opts) || manager || infer_manager(dep)
 
     dep = %{dep | manager: manager, status: scm_status(scm, opts)}
 
@@ -108,8 +108,9 @@ defmodule Mix.Dep.Loader do
         make?(dep) ->
           make_dep(dep)
 
+        # TODO: test
         true ->
-          {dep, []}
+          {dep, Enum.map(children || [], &to_dep(&1, opts[:dest], _manager = nil))}
       end
 
     %{validate_app(dep) | deps: attach_only_and_targets(children, opts)}
@@ -236,7 +237,9 @@ defmodule Mix.Dep.Loader do
     end
   end
 
-  defp infer_manager(dest) do
+  defp infer_manager(%Mix.Dep{app: app, opts: opts}) do
+    dest = opts[:dest]
+
     cond do
       any_of?(dest, ["mix.exs"]) ->
         :mix
@@ -246,6 +249,10 @@ defmodule Mix.Dep.Loader do
 
       any_of?(dest, ["Makefile", "Makefile.win"]) ->
         :make
+
+      # TODO: test
+      any_of?(dest, ["src/#{app}.app.src"]) ->
+        :erlang
 
       true ->
         nil

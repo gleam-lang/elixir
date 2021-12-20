@@ -91,6 +91,9 @@ defmodule Mix.Tasks.Deps.Compile do
             Mix.Dep.make?(dep) ->
               do_make(dep, config)
 
+            dep.manager == :erlang ->
+              do_erlang(dep, config)
+
             dep.manager == :rebar ->
               do_rebar(dep, config)
 
@@ -99,8 +102,9 @@ defmodule Mix.Tasks.Deps.Compile do
 
             true ->
               shell.error(
-                "Could not compile #{inspect(app)}, no \"mix.exs\", \"rebar.config\" or \"Makefile\" " <>
-                  "(pass :compile as an option to customize compilation, set it to \"false\" to do nothing)"
+                "Could not compile #{inspect(app)}, no \"mix.exs\", \"rebar.config\", \"Makefile\" " <>
+                  " or \"#{inspect(app)}.app.src\" (pass :compile as an option to customize" <>
+                  " compilation, set it to \"false\" to do nothing)"
               )
 
               false
@@ -237,6 +241,40 @@ defmodule Mix.Tasks.Deps.Compile do
     end
 
     Code.prepend_path(Path.join(build_path, "ebin"))
+    true
+  end
+
+  # TODO: test
+  defp do_erlang(%Mix.Dep{opts: opts, app: app}, config) do
+    alias Mix.Compilers.Erlang
+
+    dep_path = opts[:dest]
+    build_path = opts[:build]
+    config = Keyword.put(config, :app_path, build_path)
+    Mix.Project.build_structure(config, symlink_ebin: false, source: dep_path)
+
+    dep_src_path = Path.join(dep_path, "src")
+    dep_app_path = Path.join(dep_src_path, "#{app}.app.src")
+
+    source_paths = [dep_src_path]
+    files = Mix.Utils.extract_files(source_paths, [:erl])
+    opts = []
+    include_path = Erlang.to_erl_file(Path.join(dep_path, "include"))
+    compile_path = Erlang.to_erl_file(Path.join(build_path, "ebin"))
+    erlc_options = []
+
+    Mix.Tasks.Compile.Erlang.run(
+      files,
+      opts,
+      include_path,
+      compile_path,
+      erlc_options,
+      source_paths
+    )
+
+    # TODO: update .app to have all the modules in it
+    File.copy!(dep_app_path, Path.join(compile_path, "#{app}.app"))
+    Code.prepend_path(compile_path)
     true
   end
 
